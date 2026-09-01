@@ -822,34 +822,7 @@
 <div id="toast"></div>
 
 <script>
-/* ================= DATA / STORAGE ================= */
-// Bumping this version wipes any previously stored demo/test data so everyone starts fresh (0 users, 0 posts).
-const APP_DATA_VERSION = 'v10-remove-demo-2026-08-30';
-if(localStorage.getItem('smcp_data_version') !== APP_DATA_VERSION){
-  const keysToRemove = [];
-  for(let i=0;i<localStorage.length;i++){
-    const k = localStorage.key(i);
-    if(k && k.indexOf('smcp_')===0 && k!=='smcp_data_version') keysToRemove.push(k);
-  }
-  keysToRemove.forEach(k=>localStorage.removeItem(k));
-  localStorage.setItem('smcp_data_version', APP_DATA_VERSION);
-}
-
-/* The admin account is a single pre-seeded account, not something anyone can
-   sign up for through the public Register form — it logs in with just a
-   username and password, like any account, but is never created by
-   doRegister(). Default credentials: admin / admin123. */
-const DEFAULT_ADMIN = {username:'admin', password:'admin123', name:'Administrator', email:'', role:'admin'};
-function ensureAdminSeeded(){
-  let users = [];
-  try{ users = JSON.parse(localStorage.getItem('smcp_users')||'[]'); }catch(e){ users = []; }
-  if(!users.some(u=>u.role==='admin')){
-    users.push({...DEFAULT_ADMIN, registeredAt:new Date().toISOString(), lastLogin:null});
-    try{ localStorage.setItem('smcp_users', JSON.stringify(users)); }catch(e){}
-  }
-}
-ensureAdminSeeded();
-
+/* ================= APP CONSTANTS ================= */
 const PLATFORMS = {
   Instagram:{color:'linear-gradient(135deg,#F58529,#DD2A7B,#8134AF)',icon:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r="0.6" fill="#fff" stroke="none"/></svg>'},
   Facebook:{color:'#1877F2',icon:'f'},
@@ -865,34 +838,15 @@ const STATUSES = ['Planned','Published','Draft','Scheduled'];
    those errors were uncaught, so a delete/edit/create could silently fail
    to persist even though it looked instant in the UI. Every write now goes
    through this and reports failures instead of failing silently. */
-function safeSetItem(key, value){
-  try{
-    localStorage.setItem(key, value);
-    return true;
-  }catch(e){
-    console.error('Storage write failed for', key, e);
-    return false;
-  }
-}
-function loadPosts(){
-  let p;
-  try{ p = localStorage.getItem('smcp_posts'); }catch(e){ p = null; }
-  if(!p){
-    safeSetItem('smcp_posts', JSON.stringify([]));
-    return [];
-  }
-  try{ return JSON.parse(p); }catch(e){ return []; }
-}
-function savePosts(p){
-  const ok = safeSetItem('smcp_posts', JSON.stringify(p));
-  if(!ok){ showToast('Could not save — storage is full. Try removing images from a few posts, then try again.'); }
-  return ok;
-}
-function genId(){
-  if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
-  return Date.now().toString(36) + Math.random().toString(36).slice(2,10);
-}
-var posts = loadPosts();
+/* safeSetItem moved to Vercel API adapter */
+
+/* loadPosts moved to Vercel API adapter */
+
+/* savePosts moved to Vercel API adapter */
+
+/* genId moved to Vercel API adapter */
+
+var posts = [];
 let editingId = null;
 let editingImageData = null;
 
@@ -947,54 +901,14 @@ function togglePw(id, btn){
   btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
 }
 
-function doLogin(){
-  const u = document.getElementById('loginUser').value.trim();
-  const p = document.getElementById('loginPass').value;
-  const err = document.getElementById('loginError');
-  const users = JSON.parse(localStorage.getItem('smcp_users')||'[]');
-  if(!users.length){ err.style.display='block'; err.textContent='No account found yet. Please create an account first.'; return; }
-  const idx = users.findIndex(x=>x.username===u && x.password===p);
-  if(idx===-1){ err.style.display='block'; err.textContent='Invalid username or password.'; return; }
-  err.style.display='none';
-  users[idx].lastLogin = new Date().toISOString();
-  safeSetItem('smcp_users', JSON.stringify(users));
-  if(!safeSetItem('smcp_current', JSON.stringify(users[idx]))){ err.style.display='block'; err.textContent='Could not log in — browser storage is unavailable or full.'; return; }
-  enterApp();
-}
-function doRegister(){
-  const name=document.getElementById('regName').value.trim();
-  const user=document.getElementById('regUser').value.trim();
-  const email=document.getElementById('regEmail').value.trim();
-  const org=document.getElementById('regOrg').value.trim();
-  const pass=document.getElementById('regPass').value;
-  const pass2=document.getElementById('regPass2').value;
-  const err=document.getElementById('regError');
-  if(!name||!user||!email||!pass){ err.style.display='block'; err.textContent='Please fill in all fields.'; return; }
-  if(pass!==pass2){ err.style.display='block'; err.textContent='Passwords do not match.'; return; }
-  let users = JSON.parse(localStorage.getItem('smcp_users')||'[]');
-  if(users.find(x=>x.username===user)){ err.style.display='block'; err.textContent='Username already exists.'; return; }
-  err.style.display='none';
-  // Public registration always creates a regular user — the admin account is a
-  // separate, pre-seeded account (see ensureAdminSeeded), not the first signup.
-  const now = new Date().toISOString();
-  const newUser={username:user,password:pass,name:name,email:email,role:'user',registeredAt:now,lastLogin:now};
-  users.push(newUser);
-  if(!safeSetItem('smcp_users', JSON.stringify(users))){ err.style.display='block'; err.textContent='Could not create account — browser storage is unavailable or full.'; return; }
-  safeSetItem('smcp_current', JSON.stringify(newUser));
-  safeSetItem('smcp_profile_'+user, JSON.stringify({name:name,email:email,org:org||'',phone:'',about:'',logo:null}));
-  enterApp();
-}
-function doForgot(){
-  document.getElementById('forgotAlert').style.display='flex';
-}
-function doLogout(){
-  showConfirm('Are you sure you want to log out?', function(){
-    localStorage.removeItem('smcp_current');
-    document.getElementById('appShell').style.display='none';
-    document.getElementById('authScreen').style.display='flex';
-    showView('login');
-  }, 'Log Out');
-}
+/* doLogin moved to Vercel API adapter */
+
+/* doRegister moved to Vercel API adapter */
+
+/* doForgot moved to Vercel API adapter */
+
+/* doLogout moved to Vercel API adapter */
+
 
 function enterApp(){
   document.getElementById('authScreen').style.display='none';
@@ -1018,26 +932,12 @@ function enterApp(){
 }
 
 /* ================= PROFILE ================= */
-function currentUser(){ return JSON.parse(localStorage.getItem('smcp_current')||'{}'); }
-function profileKey(){ return 'smcp_profile_'+currentUser().username; }
-function loadProfile(){
-  let prof = localStorage.getItem(profileKey());
-  const cu = currentUser();
-  if(!prof){
-    prof = JSON.stringify({name:cu.name||'',email:cu.email||'',org:'',phone:'',about:'',logo:null});
-    safeSetItem(profileKey(), prof);
-  }
-  const p = JSON.parse(prof);
-  document.getElementById('pfName').value=p.name||'';
-  document.getElementById('pfEmail').value=p.email||'';
-  document.getElementById('pfOrg').value=p.org||'';
-  document.getElementById('pfPhone').value=p.phone||'';
-  document.getElementById('pfAbout').value=p.about||'';
-  const initial = (p.name||'A').trim().charAt(0).toUpperCase();
-  renderAvatar('profAvatar', p.logo, initial, 78);
-  renderAvatar('topAvatar', p.logo, initial, 34);
-  document.getElementById('topUserName').textContent = p.name||cu.username;
-}
+/* currentUser moved to Vercel API adapter */
+
+/* profileKey moved to Vercel API adapter */
+
+/* loadProfile moved to Vercel API adapter */
+
 function renderAvatar(elId, logo, initial, size){
   const el = document.getElementById(elId);
   if(logo){ el.innerHTML = `<img src="${logo}" style="width:${size}px;height:${size}px;">`; }
@@ -1068,33 +968,10 @@ function compressImage(file, maxDim, quality, cb){
   reader.readAsDataURL(file);
 }
 let pendingLogo;
-function handleLogoSelect(){
-  const fileInput = document.getElementById('pfLogoFile');
-  const file = fileInput.files[0];
-  if(!file) return;
-  if(file.size > 8*1024*1024){ showToast('Please choose a logo image under 8MB.'); fileInput.value=''; return; }
-  compressImage(file, 320, 0.82, function(dataUrl){
-    if(!dataUrl){ showToast('Could not read that image.'); fileInput.value=''; return; }
-    pendingLogo = dataUrl;
-    const p = JSON.parse(localStorage.getItem(profileKey())||'{}');
-    p.logo = pendingLogo;
-    if(safeSetItem(profileKey(), JSON.stringify(p))){
-      loadProfile();
-      showToast('Logo updated.');
-    }
-    fileInput.value='';
-  });
-}
-function saveProfile(){
-  const existing = JSON.parse(localStorage.getItem(profileKey())||'{}');
-  const p={name:document.getElementById('pfName').value,email:document.getElementById('pfEmail').value,
-    org:document.getElementById('pfOrg').value,phone:document.getElementById('pfPhone').value,about:document.getElementById('pfAbout').value,
-    logo: existing.logo||null};
-  if(safeSetItem(profileKey(), JSON.stringify(p))){
-    loadProfile();
-    showToast('Profile saved!');
-  }
-}
+/* handleLogoSelect moved to Vercel API adapter */
+
+/* saveProfile moved to Vercel API adapter */
+
 
 /* ================= NAVIGATION ================= */
 function navigate(page){
@@ -1294,100 +1171,13 @@ function hasEngagement(p){
   return ((p&&p.likes)||0)+((p&&p.comments)||0)+((p&&p.shares)||0)+((p&&p.reach)||0) > 0;
 }
 
-function submitForm(prefix){
-  const title = document.getElementById(prefix+'Title').value.trim();
-  const platform = document.getElementById(prefix+'Platform').value;
-  const type = document.getElementById(prefix+'Type').value;
-  const status = document.getElementById(prefix+'Status').value;
-  const date = document.getElementById(prefix+'Date').value;
-  const time = (document.getElementById(prefix+'Time')||{}).value || '';
-  const content = document.getElementById(prefix+'Content').value.trim();
-  const image = formImageData[prefix] || null;
-  if(!title || !date){ showToast('Please enter a post title and date.'); return; }
+/* submitForm moved to Vercel API adapter */
 
-  const wasEditing = !!editingId;
-  // Previous dates are blocked when adding a new post. Existing posts may still be edited.
-  if(!wasEditing && date < todayLocalIso()){
-    const dateEl = document.getElementById(prefix+'Date');
-    if(dateEl) dateEl.setCustomValidity('Previous dates are not allowed for a new post.');
-    if(dateEl) dateEl.reportValidity();
-    showToast('Previous dates are not allowed for a new post.');
-    return;
-  }
-  const dateEl = document.getElementById(prefix+'Date');
-  if(dateEl) dateEl.setCustomValidity('');
-  let nextPosts;
-  if(wasEditing){
-    nextPosts = posts.map(p => {
-      if(p.id!==editingId) return p;
-      const updated = {...p,title,platform,type,status,date,time,content,image:(image!==undefined?image:p.image)};
-      // Only (re)generate numbers the moment a post newly becomes Published.
-      if(status==='Published' && !hasEngagement(p)) Object.assign(updated, simulateEngagement());
-      return updated;
-    });
-  } else {
-    const base = {id:genId(),title,platform,type,status,date,time,content,image,likes:0,comments:0,shares:0,reach:0,owner:currentUser().username};
-    if(status==='Published') Object.assign(base, simulateEngagement());
-    nextPosts = posts.concat([base]);
-  }
 
-  if(!savePosts(nextPosts)){ return; } // storage failed — bail out, leave form as-is so nothing looks lost
-  posts = nextPosts;
+/* editPost moved to Vercel API adapter */
 
-  if(wasEditing){
-    editingId = null;
-    if(prefix==='full'){
-      document.getElementById('createHeading').textContent='Create New Post';
-      document.getElementById('fullSubmitBtn').textContent='+ Add Post';
-      document.getElementById('fullCancelBtn').style.display='none';
-    }
-    showToast('Post updated.');
-  } else {
-    showToast('Post created.');
-  }
-  ['Title','Content'].forEach(f=>{ const el=document.getElementById(prefix+f); if(el) el.value=''; });
-  document.getElementById(prefix+'Date').value='';
-  if(document.getElementById(prefix+'Time')) document.getElementById(prefix+'Time').value='';
-  setImagePreview(prefix, null);
-  document.getElementById(prefix+'ImageFile').value='';
-  updatePostPreview(prefix);
-  refreshAll();
-}
+/* deletePost moved to Vercel API adapter */
 
-function editPost(id){
-  const p = posts.find(x=>x.id===id);
-  if(!p) return;
-  const cu = currentUser();
-  if(cu.role!=='admin' && p.owner!==cu.username){ showToast("You can only edit your own posts."); return; }
-  navigate('create'); // resets the form (and editingId) — set editingId AFTER this, or it gets wiped
-  editingId = id;
-  document.getElementById('fullTitle').value=p.title;
-  document.getElementById('fullPlatform').value=p.platform;
-  document.getElementById('fullType').value=p.type;
-  document.getElementById('fullStatus').value=p.status;
-  document.getElementById('fullDate').value=p.date;
-  document.getElementById('fullTime').value=p.time||'';
-  document.getElementById('fullContent').value=p.content;
-  setImagePreview('full', p.image||null);
-  document.getElementById('createHeading').textContent='Edit Post';
-  document.getElementById('fullSubmitBtn').textContent='Save Changes';
-  document.getElementById('fullCancelBtn').style.display='inline-block';
-  updatePostPreview('full');
-}
-function deletePost(id){
-  const p = posts.find(x=>x.id===id);
-  if(!p) return;
-  const cu = currentUser();
-  if(cu.role!=='admin' && p.owner!==cu.username){ showToast("You can only delete your own posts."); return; }
-  showConfirm('Delete "'+p.title+'"? This cannot be undone.', function(){
-    const nextPosts = posts.filter(x=>x.id!==id);
-    if(!savePosts(nextPosts)){ return; } // storage failed — keep the post so nothing is lost silently
-    posts = nextPosts;
-    closePostModal();
-    refreshAll();
-    showToast('Post deleted.');
-  }, 'Delete');
-}
 function viewPost(id){
   const p = posts.find(x=>x.id===id);
   if(!p) return;
@@ -1865,43 +1655,10 @@ function formatDateTime(iso){
   return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
 }
 function escapeJsStr(s){ return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
-function renderUsersPage(){
-  const users = JSON.parse(localStorage.getItem('smcp_users')||'[]');
-  const cu = currentUser();
-  const sorted = users.slice().sort((a,b)=> new Date(a.registeredAt||0) - new Date(b.registeredAt||0));
-  document.getElementById('usersTableWrap').innerHTML = `
-    <div class="stat-card" style="box-shadow:none;border:1.5px solid var(--border);margin-bottom:20px;">
-      <div class="icon" style="background:var(--primary);">&#128101;</div>
-      <div><div class="num">${users.length}</div><div class="lbl">Total Users</div><div class="sub">Registered or logged in on this app</div></div>
-    </div>
-    <table class="users-table">
-      <tr><th>Username</th><th>Name</th><th>Email</th><th>Role</th><th>Registered</th><th>Last Login</th><th></th></tr>
-      ${sorted.map(u=>`<tr>
-        <td>${escapeHtml(u.username)}</td>
-        <td>${escapeHtml(u.name||'')}</td>
-        <td>${escapeHtml(u.email||'')}</td>
-        <td><span class="role-chip role-${u.role==='admin'?'admin':'user'}">${escapeHtml(u.role)}</span></td>
-        <td>${formatDateTime(u.registeredAt)}</td>
-        <td>${formatDateTime(u.lastLogin)}</td>
-        <td>${u.username===cu.username ? '' : `<button class="btn-mini del" onclick="deleteUser('${escapeJsStr(u.username)}')">Delete</button>`}</td>
-      </tr>`).join('')}
-    </table>`;
-}
-function deleteUser(username){
-  const cu = currentUser();
-  if(cu.role!=='admin') return;
-  if(username===cu.username){ showToast("You can't delete the account you're logged in as."); return; }
-  showConfirm('Delete account "'+username+'"? This also removes their posts and profile. This cannot be undone.', function(){
-    const users = JSON.parse(localStorage.getItem('smcp_users')||'[]');
-    const nextUsers = users.filter(u=>u.username!==username);
-    if(!safeSetItem('smcp_users', JSON.stringify(nextUsers))) return;
-    const nextPosts = posts.filter(p=>p.owner!==username);
-    if(savePosts(nextPosts)) posts = nextPosts;
-    try{ localStorage.removeItem('smcp_profile_'+username); }catch(e){}
-    renderUsersPage();
-    showToast('Account deleted.');
-  }, 'Delete');
-}
+/* renderUsersPage moved to Vercel API adapter */
+
+/* deleteUser moved to Vercel API adapter */
+
 
 /* ================= AUTO LOGIN CHECK ================= */
 window.onload = function(){
@@ -1966,6 +1723,38 @@ function deleteUser(username){const cu=currentUser();if(cu.role!=='admin')return
 async function bootFullStack(){
   const token=localStorage.getItem('smcp_token'); if(!token){document.getElementById('authScreen').style.display='flex';document.getElementById('appShell').style.display='none';showView('login');return;}
   try{await fetchPosts();const cu=currentUser();if(cu.role!=='admin')await fetchProfile();enterApp();refreshAll();}catch(e){localStorage.removeItem('smcp_token');localStorage.removeItem('smcp_current');document.getElementById('authScreen').style.display='flex';document.getElementById('appShell').style.display='none';showView('login');}
+}
+
+
+/* ===== Final MongoDB/Vercel UI overrides ===== */
+function postItemHtml(p, showEdit){
+  const cu=currentUser();
+  const postId=p._id||p.id;
+  const hasEng=(p.likes||0)+(p.comments||0)+(p.shares||0)+(p.reach||0)>0;
+  return `<div class="post-item">
+    ${p.image?`<img src="${p.image}" class="post-thumb" onclick="viewPost('${postId}')">`:platIconHtml(p.platform)}
+    <div class="post-main">
+      <div class="ptitle" style="cursor:pointer" onclick="viewPost('${postId}')">${escapeHtml(p.title)}</div>
+      <div class="post-meta"><span>${p.platform}</span><span>📎 ${p.type}</span><span>📅 ${formatDate(p.date)}</span><span class="status-chip status-${p.status}">${p.status}</span>${cu.role==='admin'?`<span class="owner-tag">by ${escapeHtml(p.owner||'unknown')}</span>`:''}</div>
+      <div class="post-content">${escapeHtml(p.content||'')}</div>
+      ${hasEng?`<div class="eng-row"><span>👍 ${p.likes||0}</span><span>💬 ${p.comments||0}</span><span>🔁 ${p.shares||0}</span><span>👁 ${p.reach||0}</span></div>`:''}
+    </div>
+    ${showEdit?`<div class="post-actions"><button class="btn-mini" onclick="viewPost('${postId}')">View</button><button class="btn-mini edit" onclick="editPost('${postId}')">Edit</button><button class="btn-mini del" onclick="deletePost('${postId}')">Delete</button></div>`:''}
+  </div>`;
+}
+function viewPost(id){
+  const p=posts.find(x=>(x._id||x.id)===id);
+  if(!p){showToast('Post not found.');return;}
+  const cu=currentUser(), postId=p._id||p.id;
+  const canEdit=cu.role==='admin'||p.owner===cu.username;
+  document.getElementById('postModalBody').innerHTML=`
+    ${p.image?`<img src="${p.image}" class="modal-img">`:''}
+    <h3>${escapeHtml(p.title)}</h3>
+    <div class="post-meta" style="margin-bottom:10px"><span>${p.platform}</span><span>📎 ${p.type}</span><span>📅 ${formatDate(p.date)}</span><span class="status-chip status-${p.status}">${p.status}</span>${cu.role==='admin'?`<span class="owner-tag">by ${escapeHtml(p.owner||'unknown')}</span>`:''}</div>
+    <p style="font-size:14px;color:#4A4F63;line-height:1.5">${escapeHtml(p.content||'')}</p>
+    <div class="eng-grid" style="margin-top:16px"><div class="an-card"><div class="n">${p.likes||0}</div><div class="l">👍 Likes</div></div><div class="an-card"><div class="n">${p.comments||0}</div><div class="l">💬 Comments</div></div><div class="an-card"><div class="n">${p.shares||0}</div><div class="l">🔁 Shares</div></div><div class="an-card"><div class="n">${p.reach||0}</div><div class="l">👁 Reach</div></div></div>
+    ${canEdit?`<div style="display:flex;gap:8px;margin-top:14px"><button class="btn-mini edit" onclick="closePostModal();editPost('${postId}')">Edit</button><button class="btn-mini del" onclick="deletePost('${postId}')">Delete</button></div>`:''}`;
+  document.getElementById('postModal').classList.add('open');
 }
 window.onload=bootFullStack;
 </script>
