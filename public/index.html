@@ -687,6 +687,14 @@
         <div id="anBestPostWrap"></div>
         <div id="anTopPostsWrap" style="margin-top:16px;"></div>
       </div>
+      <div class="card" style="margin-top:20px;">
+  <h3>Engagement Chart</h3>
+  <div class="underline"></div>
+  <p style="color:var(--muted);font-size:13px;">
+    Likes, comments, shares and reach across your posts.
+  </p>
+  <div id="engagementChart" class="bar-chart"></div>
+</div>
 
       <div class="content-grid">
         <div class="card">
@@ -1489,6 +1497,7 @@ function renderAnalytics(){
 
   renderEngagementSection(vp, 'anEngGrid', 'anBestPostWrap');
   renderTopPosts(vp, 'anTopPostsWrap');
+  renderEngagementChart(vp);
 
   const statusCounts = {Planned:planned,Published:published,Draft:draft,Scheduled:scheduled};
   const maxVal = Math.max(1, ...Object.values(statusCounts));
@@ -1520,6 +1529,29 @@ function renderEngagementSection(list, gridElId, bestElId){
   const totalComments = list.reduce((a,p)=>a+(p.comments||0),0);
   const totalShares = list.reduce((a,p)=>a+(p.shares||0),0);
   const totalReach = list.reduce((a,p)=>a+(p.reach||0),0);
+  const data = [
+    {label:'Likes', value:totalLikes, color:'#C81A8B'},
+    {label:'Comments', value:totalComments, color:'#2563EB'},
+    {label:'Shares', value:totalShares, color:'#16A34A'},
+    {label:'Reach', value:totalReach, color:'#D97706'}
+  ];
+
+  const max = Math.max(1, ...data.map(x=>x.value));
+
+  wrap.innerHTML = data.map(x=>{
+    const height = Math.max(15, Math.round((x.value/max)*130));
+
+    return `
+      <div class="bar-col">
+        <div class="bar-fill"
+             style="height:${height}px;background:${x.color};">
+          <span class="val">${x.value}</span>
+        </div>
+        <div class="bar-lbl">${x.label}</div>
+      </div>
+    `;
+  }).join('');
+}
   if(gridElId){
     document.getElementById(gridElId).innerHTML = `
       <div class="an-card"><div class="n">${totalLikes}</div><div class="l">&#128077; Total Likes</div></div>
