@@ -1524,11 +1524,52 @@ function renderAnalytics(){
 }
 
 /* ================= ENGAGEMENT ANALYSIS (shared by Analytics + Reports) ================= */
+/* ================= ENGAGEMENT ANALYSIS (shared by Analytics + Reports) ================= */
 function renderEngagementSection(list, gridElId, bestElId){
   const totalLikes = list.reduce((a,p)=>a+(p.likes||0),0);
   const totalComments = list.reduce((a,p)=>a+(p.comments||0),0);
   const totalShares = list.reduce((a,p)=>a+(p.shares||0),0);
   const totalReach = list.reduce((a,p)=>a+(p.reach||0),0);
+
+  if(gridElId){
+    document.getElementById(gridElId).innerHTML = `
+      <div class="an-card">
+        <div class="n">${totalLikes}</div>
+        <div class="l">&#128077; Total Likes</div>
+      </div>
+
+      <div class="an-card">
+        <div class="n">${totalComments}</div>
+        <div class="l">&#128172; Total Comments</div>
+      </div>
+
+      <div class="an-card">
+        <div class="n">${totalShares}</div>
+        <div class="l">&#128257; Total Shares</div>
+      </div>
+
+      <div class="an-card">
+        <div class="n">${totalReach}</div>
+        <div class="l">&#128065; Total Reach</div>
+      </div>
+    `;
+  }
+
+  renderBestPostCallout(list, bestElId);
+}
+
+
+/* ================= ENGAGEMENT CHART ================= */
+function renderEngagementChart(list){
+  const wrap = document.getElementById('engagementChart');
+
+  if(!wrap) return;
+
+  const totalLikes = list.reduce((a,p)=>a+(p.likes||0),0);
+  const totalComments = list.reduce((a,p)=>a+(p.comments||0),0);
+  const totalShares = list.reduce((a,p)=>a+(p.shares||0),0);
+  const totalReach = list.reduce((a,p)=>a+(p.reach||0),0);
+
   const data = [
     {label:'Likes', value:totalLikes, color:'#C81A8B'},
     {label:'Comments', value:totalComments, color:'#2563EB'},
@@ -1551,17 +1592,7 @@ function renderEngagementSection(list, gridElId, bestElId){
       </div>
     `;
   }).join('');
-}
-  if(gridElId){
-    document.getElementById(gridElId).innerHTML = `
-      <div class="an-card"><div class="n">${totalLikes}</div><div class="l">&#128077; Total Likes</div></div>
-      <div class="an-card"><div class="n">${totalComments}</div><div class="l">&#128172; Total Comments</div></div>
-      <div class="an-card"><div class="n">${totalShares}</div><div class="l">&#128257; Total Shares</div></div>
-      <div class="an-card"><div class="n">${totalReach}</div><div class="l">&#128065; Total Reach</div></div>
-    `;
-  }
-  renderBestPostCallout(list, bestElId);
-}
+    }
 function renderBestPostCallout(list, bestElId){
   const withEngagement = list.filter(p=>((p.likes||0)+(p.comments||0)+(p.shares||0))>0);
   const bestWrap = document.getElementById(bestElId);
